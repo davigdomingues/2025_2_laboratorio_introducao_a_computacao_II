@@ -1,0 +1,44 @@
+bool palindromoVerificarRecursivo(char *palindromoVerificador, int meio, int deslocamento) { // Checagem de palindromos via recursão.
+    palindromoVerificador[deslocamento] = palindromoVerificador[meio]; // Checagem de palindromos via iteração.
+}
+
+bool palindromoVerificar(char *palavra) { // Função interativa de checagem das palavras palindromas.
+    char resultado[TAMANHO];
+    int j = 0;
+
+    for (int i = 0; i < strlen(palavra); i++) { // Trecho de conversão da palavra original para letras minúsculas apenas em letras do alfabeto.
+        if (isalpha(palavra[i])) {
+            resultado[j++] = tolower(palavra[i]); // Conversão de quaisquer caracteres para letras minúsculas
+        }
+    }
+
+    return palindromoVerificarRecursivo(resultado, 0, j); // Retorno final condicionado pela função recursiva de checagem.
+}
+
+bool palindromoVerificarRecursivo(char *palindromoRecursivo, int inicio, int fim) { // Função recursiva de verificação das palavras palindromas.
+    if (inicio >= fim) { // Checagem de chamadas "encapsuladas" na recursão, ou seja, chamadas recursivas de retorno.
+        return true;
+    }
+
+    if (palindromoRecursivo[inicio] != palindromoRecursivo[fim]) { // Comparação de caracteres
+        return false;
+    }
+
+    return palindromoVerificarRecursivo(palindromoRecursivo, inicio + 1, fim - 1); // Chamada recursiva efetiva.
+}
+
+int main() {
+    char palavra[TAMANHO];
+
+    // Leitura de strings até EOF
+    while (fgets(palavra, sizeof(palavra), stdin)) {
+        palavra[strcspn(palavra, "\n")] = '\0'; // Remove o '\n' adicionado por fgets
+
+        if (palindromoVerificadorIterativo(palavra))
+            printf("Sim\n");
+        else
+            printf("Nao\n");
+    }
+
+    return 0;
+}

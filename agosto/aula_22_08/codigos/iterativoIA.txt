@@ -1,0 +1,46 @@
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+
+// Função para limpar a string e converter para minúsculas
+void limpar_string(char *str, char *limpa) {
+    int i = 0, j = 0;
+    
+    while (str[i]) {
+        if (isalnum((unsigned char)str[i])) {
+            limpa[j] = tolower((unsigned char)str[i]);
+            j++;
+        }
+        
+        i++;
+    }
+    limpa[j] = '\0';
+}
+
+// Função iterativa para verificar se uma string é palíndromo
+int is_palindrome(char *str) {
+    int len = strlen(str);
+    
+    for (int i = 0; i < len / 2; i++) {
+        if (str[i] != str[len - i - 1]) {
+            return 0; // Não é palíndromo
+        }
+    }
+    return 1; // É palíndromo
+}
+
+int main() {
+    char str[1000], limpa[1000];
+    
+    // Leitura de strings até EOF
+    while (fgets(str, sizeof(str), stdin)) {
+        limpar_string(str, limpa);
+        if (is_palindrome(limpa))
+            printf("Sim\n");
+        
+        else
+            printf("Nao\n");
+    }
+    
+    return 0;
+}

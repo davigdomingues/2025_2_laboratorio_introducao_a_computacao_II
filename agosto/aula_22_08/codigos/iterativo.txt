@@ -1,0 +1,52 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdbool.h>
+
+#define TAMANHO 100
+
+// Função para verificar se a string é um palíndromo de forma iterativa
+bool palindromoVerificadorIterativo(char *palavra) {
+    int len = strlen(palavra);
+    int esquerda = 0, direita = len - 1;
+
+    while (esquerda < direita) {
+        // Ignora caracteres não alfanuméricos à esquerda
+        while (esquerda < direita && !isalnum((unsigned char)palavra[esquerda])) {
+            esquerda++;
+        }
+
+        // Ignora caracteres não alfanuméricos à direita
+        while (esquerda < direita && !isalnum((unsigned char)palavra[direita])) {
+            direita--;
+        }
+
+        // Compara os caracteres alfanuméricos em posições simétricas
+        if (tolower((unsigned char)palavra[esquerda]) != tolower((unsigned char)palavra[direita])) {
+            return false; // Não é um palíndromo
+        }
+
+        // Move os índices em direção ao centro
+        esquerda++;
+        direita--;
+    }
+
+    return true; // É um palíndromo
+}
+
+int main() {
+    char palavra[TAMANHO];
+
+    // Leitura de strings até EOF
+    while (fgets(palavra, sizeof(palavra), stdin)) {
+        palavra[strcspn(palavra, "\n")] = '\0'; // Remove o '\n' adicionado por fgets
+
+        if (palindromoVerificadorIterativo(palavra)) {
+            printf("Sim\n");
+        } else {
+            printf("Nao\n");
+        }
+    }
+
+    return 0;
+}
