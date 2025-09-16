@@ -58,7 +58,7 @@ menores no começo, maiores no final, sendo as bolhas os valores dos dados. */
     return dados;
 }
 
-void imprimirGrupo(char *tipo, Grupo grupo) { // Função padronizada de impressão dos dados.
+void imprimirGrupo(char *tipo, Grupo grupo, Dados dados) { // Função padronizada de impressão dos dados.
     printf("%s - [", tipo);
     
     for (int i = 0; i < grupo.tamanho; i++) { /* Loop para percorrer as structs e captar os
@@ -69,7 +69,8 @@ void imprimirGrupo(char *tipo, Grupo grupo) { // Função padronizada de impress
             printf(", ");
     }
     
-    printf("]");
+    printf("]\n");
+	printf("Comparações: %d, Trocas: %d", dados.comparacoes, dados.movimentacoes);
 }
 
 int main() {
