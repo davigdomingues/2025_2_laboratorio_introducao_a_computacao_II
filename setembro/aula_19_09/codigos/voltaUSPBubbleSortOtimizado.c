@@ -17,7 +17,7 @@ void adicionarTamanho(Grupo *grupo, int tamanho) { /* Função para contabilizar
 sob o princípio de alocação dinâmica */
     if (grupo->tamanho >= grupo->capacidade) {
         grupo->capacidade = (grupo->capacidade == 0) ? 10 : grupo->capacidade * 2; /* Multiplicação em potência de 2 para diminuir o gasto computacional 
-		de aumento linear de espaço (procedimento da entrega03 - parte 1). */
+	de aumento linear de espaço (procedimento da entrega03 - parte 1). */
         grupo->tamanhos = realloc(grupo->tamanhos, grupo->capacidade*sizeof(int));
     }
     
@@ -37,24 +37,44 @@ no seu respectivo grupo do evento (usp ou externa). */
     return tamanho;
 }
 
-Dados ordenacaoBubbleSort(int *vetor, int tamanho) { /* Segue uma lógica simples de analogia das bolhas: 
-menores no começo, maiores no final, sendo as bolhas os valores dos dados. */
+Dados ordenacaoBubbleSort(int *vetor, int tamanho) { /* Uso do Cocktail Shaker Sort (shake sort),
+que é uma otimização do bubble sort */
     Dados dados = {0, 0}; // Inicialização padrão.
-    int temporario;
-    
-    for (int i = 0; i < tamanho - 1; i++) { // Loop para a base de comparação.
-        for (int j = 0; j < tamanho - i - 1; j++) { // Loop para o percorrimento comparativo.
-            dados.comparacoes++; // Contagem de comparações no algoritmo de ordenação solicitado.
-            
-            if (vetor[j] > vetor[j+1]) { // Condicional para a operação de deslocamento de valores.
-                temporario = vetor[j];
-				vetor[j] = vetor[j+1];
-				vetor[j+1] = temporario;
-				dados.movimentacoes++; // Contagem de movimentacoes de dados no vetor no algoritmo de ordenação solicitado.
+	
+    if (tamanho <= 1 || vetor == NULL) 
+		return dados;
+
+    int inicio = 0;
+    int fim = tamanho - 1;
+
+    while (inicio < fim) {
+        // Varredura da esquerda para a direita
+        for (int i = inicio; i < fim; i++) {
+            dados.comparacoes++;
+            if (vetor[i] > vetor[i+1]) {
+                int temporario = vetor[i];
+                vetor[i] = vetor[i+1];
+                vetor[i+1] = temporario;
+                dados.movimentacoes++;
             }
         }
+        // Diminui o fim pois o maior já está no lugar
+        fim--;
+
+        // Varredura da direita para a esquerda
+        for (int i = fim; i > inicio; i--) {
+            dados.comparacoes++;
+            if (vetor[i-1] > vetor[i]) {
+                int temporario = vetor[i-1];
+                vetor[i-1] = vetor[i];
+                vetor[i] = temporario;
+                dados.movimentacoes++;
+            }
+        }
+        // Aumenta o inicio pois o menor já está no lugar
+        inicio++;
     }
-    
+
     return dados;
 }
 
