@@ -1,3 +1,6 @@
+//Nome: Davi Gabriel Domingues
+//N° USP: 15447497
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
