@@ -40,6 +40,13 @@ caso contrário */
     if (brinquedo1->nota < brinquedo2->nota)
         return 1;
         
+    // Desempate por id para garantir ordem estável/determinística (menor id == entrou antes)
+    if (brinquedo1->id < brinquedo2->id)
+        return -1;
+        
+    if (brinquedo1->id > brinquedo2->id)
+        return 1;
+        
     return 0; // significa que os dados são "equivalentes" para o algoritmo de ordenação
 }
 
@@ -116,19 +123,37 @@ void junta(Brinquedo *brinquedos, int inicio, int meio, int fim) {
     int n1 = meio - inicio + 1;
     int n2 = fim - meio;
 
-    // Criação e população de arrays temporários
-    Brinquedo leftArr[n1], rightArr[n2];
+    // Usar heap em vez de VLA para evitar estouro de pilha em entradas grandes
+    Brinquedo *leftArr = NULL;
+    Brinquedo *rightArr = NULL;
+
+    if (n1 > 0) {
+        leftArr = (Brinquedo*)malloc(n1 * sizeof(Brinquedo));
+        if (!leftArr)
+            return; // falha em alocar -> evita comportamento indefinido
+    }
+    
+    if (n2 > 0) {
+        rightArr = (Brinquedo*)malloc(n2 * sizeof(Brinquedo));
+
+        if (!rightArr) { 
+            free(leftArr); 
+            return; 
+        }
+    }
+
     for (i = 0; i < n1; i++)
-        leftArr[i] = brinquedos[inicio+ i];
+        leftArr[i] = brinquedos[inicio + i];
+
     for (j = 0; j < n2; j++)
         rightArr[j] = brinquedos[meio + 1 + j];
 
-    // Explicar melhor o que acontece aqui
     i = 0;
     j = 0;
     k = inicio;
+
     while (i < n1 && j < n2) {
-        if(compararBrinquedos(&leftArr[i], &rightArr[j]) <= 0) {
+        if (compararBrinquedos(&leftArr[i], &rightArr[j]) <= 0) {
             brinquedos[k] = leftArr[i];
             i++;
         }
@@ -150,10 +175,12 @@ void junta(Brinquedo *brinquedos, int inicio, int meio, int fim) {
         j++;
         k++;
     }
+
+    free(leftArr);
+    free(rightArr);
 }
 
 void ordenacaoViaMergeSort(Brinquedo *brinquedos, int inicio, int fim) {
-    printf("%d %d\n", inicio, fim);
     if(inicio >= fim) return; // Condição de saída
 
     int meio = inicio + (fim - inicio)/2;
@@ -167,23 +194,35 @@ void ordenacaoViaMergeSort(Brinquedo *brinquedos, int inicio, int fim) {
 }
 
 int particiona(Brinquedo *brinquedo, int inicio, int fim) {
+    // função de particionamento para o QuickSort
+    // - escolhe o último elemento como pivo (estratégia simples e determinística)
+    // - reorganiza o subarray de modo que todos elementos <= pivo fiquem à esquerda,
+    //   e os > pivo fiquem à direita, mantendo estabilidade relativa onde possível.
+    // - retorna o índice final do pivo após a partição.
+
     Brinquedo pivo = brinquedo[fim];
     int i = inicio - 1;
     
     for (int j = inicio; j < fim; j++) {
+        // se brinquedo[j] é menor ou igual ao pivo segundo nosso critério,
+        // incrementa i e troca para mover esse elemento para a "parte menor".
         if (compararBrinquedos(&brinquedo[j], &pivo) <= 0) {
             i++;
-            capitaoGinyu(&brinquedo[i], &brinquedo[j]);
+            capitaoGinyu(&brinquedo[i], &brinquedo[j]); // troca estável via struct completo
         }
     }
+    // coloca o pivo na sua posição ordenada final
     capitaoGinyu(&brinquedo[i + 1], &brinquedo[fim]);
     return i + 1;
 }
 
 void ordenacaoViaQuickSort(Brinquedo *brinquedo, int inicio, int fim) {
+    // Implementação recursiva do QuickSort:
+    // - chama particiona para dividir o array em duas partes em torno do pivo
+    // - aplica recursivamente nas subpartes esquerda e direita
+    // - condição de parada: subarray com zero ou um elemento (inicio >= fim)
     if (inicio < fim) {
         int pi = particiona(brinquedo, inicio, fim);
-        
         ordenacaoViaQuickSort(brinquedo, inicio, pi - 1);
         ordenacaoViaQuickSort(brinquedo, pi + 1, fim);
     }
@@ -219,14 +258,15 @@ int main() {
             ordenacaoViaQuickSort(brinquedo, 0, numeroBrinquedos - 1);
             break;
         default:
+            // caso o método selecionado seja inválido, nenhuma ordenação é aplicada.
             break;
 	}
 	
 	for (int i = 0; i < numeroBrinquedos; i++) // impressão padronizada dos id's associados à ordem de entrada dos brinquedos.
-	    printf("%d;", brinquedo[i].id);
-	
-	printf("\n"); // quebra de linha posta por questão de conformidade à saída desejada pelo runcodes.
-	free(brinquedo);
+        printf("%d;", brinquedo[i].id); // imprime os ids separados por ponto e vírgula (formato exigido pela plataforma).
+    
+    printf("\n"); // quebra de linha posta por questão de conformidade à saída desejada pelo runcodes.
+    free(brinquedo);
 
-	return 0;
+    return 0;
 }
