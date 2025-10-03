@@ -1,7 +1,14 @@
+/* Autores: 
+Davi Gabriel Domingues (N° USP: 15447497)
+Pedro Martins de Oliveira (N° USP: 13696213) 
+*/
+
+#include <ctype.h> // já presente? se não, incluído aqui para trim (pode ser removido se duplicado)
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <time.h> // adicionado para medições de tempo (clock)
 
 typedef struct { // struct utilizada para padronizar o tratamento dos dados.
 	int id;
@@ -228,28 +235,138 @@ void ordenacaoViaQuickSort(Brinquedo *brinquedo, int inicio, int fim) {
     }
 }
 
-int main() {
-	int numeroBrinquedos = -1, metodoSelecionado = 0;
-	scanf("%d", &numeroBrinquedos);
+// Copia n elementos de src para dst
+void copiarVetor(Brinquedo *dst, const Brinquedo *src, int n) {
+    if (n <= 0) return;
+    memcpy(dst, src, n * sizeof(Brinquedo));
+}
+
+// Executa um algoritmo sobre uma cópia dos dados originais, retorna tempo em segundos
+void executarAlgoritmoCopia(const Brinquedo *orig, int n, int metodo, double *tempo_out) {
+    Brinquedo *tmp = (Brinquedo*)malloc(n * sizeof(Brinquedo));
+    if (!tmp) {
+        *tempo_out = -1.0;
+        return;
+    }
+    copiarVetor(tmp, orig, n);
+    clock_t start = clock();
+    switch (metodo) {
+        case 1: ordenacaoViaBubbleSort(tmp, n); break;
+        case 2: ordenacaoViaInsertionSort(tmp, n); break;
+        case 3: ordenacaoViaMergeSort(tmp, 0, n - 1); break;
+        case 4: ordenacaoViaQuickSort(tmp, 0, n - 1); break;
+        default: break;
+    }
+    clock_t end = clock();
+    *tempo_out = (double)(end - start) / (double)CLOCKS_PER_SEC;
+    free(tmp);
+}
+
+// substitui a main original para suportar --batch sem quebrar o uso original
+int main(int argc, char *argv[]) {
+    // Modo batch: --batch <lista.txt> [all|1,2,3,4]
+    if (argc >= 3 && strcmp(argv[1], "--batch") == 0) {
+        const char *listaPath = argv[2];
+        const char *algosSpec = (argc >= 4) ? argv[3] : "all";
+        FILE *lf = fopen(listaPath, "r");
+        if (!lf) {
+            fprintf(stderr, "Erro ao abrir lista de testes: %s\n", listaPath);
+            return -1;
+        }
+
+        // preparar lista de algoritmos a executar
+        bool runAlgo[5] = { false, true, true, true, true }; // index 1..4 (default all)
+        if (strcmp(algosSpec, "all") != 0) {
+            // reset e parse simples "1,2" ou "2"
+            for (int i = 0; i <= 4; i++) runAlgo[i] = false;
+            char specbuf[128];
+            strncpy(specbuf, algosSpec, sizeof(specbuf)-1);
+            specbuf[sizeof(specbuf)-1] = '\0';
+            char *tok = strtok(specbuf, ",");
+            while (tok) {
+                int a = atoi(tok);
+                if (a >= 1 && a <= 4) runAlgo[a] = true;
+                tok = strtok(NULL, ",");
+            }
+        }
+
+        char pathbuf[1024];
+        while (fgets(pathbuf, sizeof(pathbuf), lf)) {
+            // trim newline/carriage
+            size_t L = strlen(pathbuf);
+            while (L > 0 && (pathbuf[L-1] == '\n' || pathbuf[L-1] == '\r')) { pathbuf[--L] = '\0'; }
+            if (L == 0) continue;
+
+            FILE *tf = fopen(pathbuf, "r");
+            if (!tf) {
+                fprintf(stderr, "Falha ao abrir arquivo de teste: %s\n", pathbuf);
+                continue;
+            }
+
+            int numeroBrinquedos = 0;
+            if (fscanf(tf, "%d", &numeroBrinquedos) != 1) {
+                fprintf(stderr, "Formato inválido (numeroBrinquedos) em: %s\n", pathbuf);
+                fclose(tf);
+                continue;
+            }
+
+            Brinquedo *orig = (Brinquedo*)malloc(numeroBrinquedos * sizeof(Brinquedo));
+            if (!orig) {
+                fprintf(stderr, "Falha alocar vetor para: %s\n", pathbuf);
+                fclose(tf);
+                continue;
+            }
+
+            for (int i = 0; i < numeroBrinquedos; i++) {
+                orig[i].id = i;
+                if (fscanf(tf, "%19s %lf %lf", orig[i].cor, &orig[i].comprimento, &orig[i].nota) != 3) {
+                    // se falhar na leitura, preencher com valores neutros e ajustar tamanho real
+                    numeroBrinquedos = i;
+                    break;
+                }
+            }
+            fclose(tf);
+
+            // executar cada algoritmo solicitado e registrar tempo em stderr (CSV)
+            for (int a = 1; a <= 4; a++) {
+                if (!runAlgo[a]) continue;
+                double t = 0.0;
+                executarAlgoritmoCopia(orig, numeroBrinquedos, a, &t);
+                fprintf(stderr, "%s,alg%d,%.6f\n", pathbuf, a, t);
+            }
+
+            free(orig);
+        }
+
+        fclose(lf);
+        return 0;
+    }
+
+    int numeroBrinquedos = -1, metodoSelecionado = 0;
+    if (scanf("%d", &numeroBrinquedos) != 1) return -1;
 
     // alocação dinâmica e tratamento para caso de insucesso.
-	Brinquedo *brinquedo = (Brinquedo*)malloc(numeroBrinquedos*sizeof(Brinquedo));
-	if (brinquedo == NULL)
-		return -1;
+    Brinquedo *brinquedo = (Brinquedo*)malloc(numeroBrinquedos*sizeof(Brinquedo));
+    if (brinquedo == NULL)
+        return -1;
 
-	for (int i = 0; i < numeroBrinquedos; i++) { // loop para leitura formatada dos dados, conforme o runcodes deseja.
-		brinquedo[i].id = i;
-		scanf("%s %lf %lf", brinquedo[i].cor, &brinquedo[i].comprimento, &brinquedo[i].nota);
-	}
+    for (int i = 0; i < numeroBrinquedos; i++) { // loop para leitura formatada dos dados, conforme o runcodes deseja.
+        brinquedo[i].id = i;
+        scanf("%s %lf %lf", brinquedo[i].cor, &brinquedo[i].comprimento, &brinquedo[i].nota);
+    }
 
-	scanf("%d", &metodoSelecionado); // leitura do método a ser utilizado para a ordenação, conforme o desejo do usuário.
-	switch (metodoSelecionado) { // estrutura switch para o condicionamento dos casos de ordenação, no caso, o algoritmo em si.
-	    case 1:
-	        ordenacaoViaBubbleSort(brinquedo, numeroBrinquedos);
-		    break;
-		
-	    case 2:
-    	    ordenacaoViaInsertionSort(brinquedo, numeroBrinquedos);
+    if (scanf("%d", &metodoSelecionado) != 1) metodoSelecionado = 0; // manter compatibilidade
+
+    // Medição de desempenho: inicia o relógio antes de executar o algoritmo.
+    clock_t inicio_tempo = clock();
+
+    switch (metodoSelecionado) { // estrutura switch para o condicionamento dos casos de ordenação, no caso, o algoritmo em si.
+        case 1:
+            ordenacaoViaBubbleSort(brinquedo, numeroBrinquedos);
+            break;
+        
+        case 2:
+            ordenacaoViaInsertionSort(brinquedo, numeroBrinquedos);
             break;
         case 3:
             ordenacaoViaMergeSort(brinquedo, 0, numeroBrinquedos - 1);
@@ -260,9 +377,15 @@ int main() {
         default:
             // caso o método selecionado seja inválido, nenhuma ordenação é aplicada.
             break;
-	}
-	
-	for (int i = 0; i < numeroBrinquedos; i++) // impressão padronizada dos id's associados à ordem de entrada dos brinquedos.
+    }
+
+    // Encerra a medição e calcula tempo decorrido (segundos).
+    clock_t fim_tempo = clock();
+    double tempo_decorrido = (double)(fim_tempo - inicio_tempo) / (double)CLOCKS_PER_SEC;
+    // Imprime tempo em stderr para não poluir a saída padrão exigida pela plataforma de avaliação.
+    fprintf(stderr, "Tempo (s): %.6f\n", tempo_decorrido);
+    
+    for (int i = 0; i < numeroBrinquedos; i++) // impressão padronizada dos id's associados à ordem de entrada dos brinquedos.
         printf("%d;", brinquedo[i].id); // imprime os ids separados por ponto e vírgula (formato exigido pela plataforma).
     
     printf("\n"); // quebra de linha posta por questão de conformidade à saída desejada pelo runcodes.

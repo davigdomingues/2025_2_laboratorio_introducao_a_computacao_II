@@ -1,0 +1,3 @@
+D:\pastasGitClonadas\2025_2_laboratorio_introducao_a_computacao_II\setembro\aula_26_09\codigos\casosDeTeste\1.in
+D:\pastasGitClonadas\2025_2_laboratorio_introducao_a_computacao_II\setembro\aula_26_09\codigos\casosDeTeste\2.in
+D:\pastasGitClonadas\2025_2_laboratorio_introducao_a_computacao_II\setembro\aula_26_09\codigos\casosDeTeste\4.in
