@@ -111,12 +111,82 @@ de seu desempenho amortizado, comparado à inserção direta tradicional */
     }
 }
 
-void ordenacaoViaMergeSort(Brinquedo *brinquedo, int inicio, int fim) {
+void junta(Brinquedo *brinquedos, int inicio, int meio, int fim) {
+    int i, j, k;
+    int n1 = meio - inicio + 1;
+    int n2 = fim - meio;
+
+    // Criação e população de arrays temporários
+    Brinquedo leftArr[n1], rightArr[n2];
+    for (i = 0; i < n1; i++)
+        leftArr[i] = brinquedos[inicio+ i];
+    for (j = 0; j < n2; j++)
+        rightArr[j] = brinquedos[meio + 1 + j];
+
+    // Explicar melhor o que acontece aqui
+    i = 0;
+    j = 0;
+    k = inicio;
+    while (i < n1 && j < n2) {
+        if(compararBrinquedos(&leftArr[i], &rightArr[j]) <= 0) {
+            brinquedos[k] = leftArr[i];
+            i++;
+        }
+        else {
+            brinquedos[k] = rightArr[j];
+            j++;
+        }
+        k++;
+    }
+
+    while (i < n1) {
+        brinquedos[k] = leftArr[i];
+        i++;
+        k++;
+    }
+
+    while (j < n2) {
+        brinquedos[k] = rightArr[j];
+        j++;
+        k++;
+    }
+}
+
+void ordenacaoViaMergeSort(Brinquedo *brinquedos, int inicio, int fim) {
+    printf("%d %d\n", inicio, fim);
+    if(inicio >= fim) return; // Condição de saída
+
+    int meio = inicio + (fim - inicio)/2;
+
+    ordenacaoViaMergeSort(brinquedos, inicio, meio);
+    ordenacaoViaMergeSort(brinquedos, meio + 1, fim);
+
+    junta(brinquedos, inicio, meio, fim);
+
+    return;
+}
+
+int particiona(Brinquedo *brinquedo, int inicio, int fim) {
+    Brinquedo pivo = brinquedo[fim];
+    int i = inicio - 1;
     
+    for (int j = inicio; j < fim; j++) {
+        if (compararBrinquedos(&brinquedo[j], &pivo) <= 0) {
+            i++;
+            capitaoGinyu(&brinquedo[i], &brinquedo[j]);
+        }
+    }
+    capitaoGinyu(&brinquedo[i + 1], &brinquedo[fim]);
+    return i + 1;
 }
 
 void ordenacaoViaQuickSort(Brinquedo *brinquedo, int inicio, int fim) {
-    
+    if (inicio < fim) {
+        int pi = particiona(brinquedo, inicio, fim);
+        
+        ordenacaoViaQuickSort(brinquedo, inicio, pi - 1);
+        ordenacaoViaQuickSort(brinquedo, pi + 1, fim);
+    }
 }
 
 int main() {
@@ -142,15 +212,12 @@ int main() {
 	    case 2:
     	    ordenacaoViaInsertionSort(brinquedo, numeroBrinquedos);
             break;
-        /*
         case 3:
             ordenacaoViaMergeSort(brinquedo, 0, numeroBrinquedos - 1);
             break;
-        
         case 4:
             ordenacaoViaQuickSort(brinquedo, 0, numeroBrinquedos - 1);
             break;
-            */
         default:
             break;
 	}
