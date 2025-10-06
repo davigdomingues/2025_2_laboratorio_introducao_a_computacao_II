@@ -55,4 +55,7 @@ def fileGenerator(max_middle_value=5.0, method=1):
     print(f"Generated {len(lines)} entries")
 
 if __name__ == "__main__":
-   fileGenerator(1.0,4) 
+    # fileGenerator(0.1,4)
+    # fileGenerator(1.0,4) 
+    # fileGenerator(10,4)
+    fileGenerator(100,4)
