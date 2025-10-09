@@ -3,7 +3,7 @@ Davi Gabriel Domingues (N° USP: 15447497)
 Pedro Martins de Oliveira (N° USP: 13696213) 
 */
 
-#include <ctype.h> // já presente? se não, incluído aqui para trim (pode ser removido se duplicado)
+#include <ctype.h> // incluso para trim (pode ser removido se duplicado)
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
