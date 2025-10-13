@@ -6,7 +6,7 @@
 
 void algoritmo_id1_quicksort(int *array, int n);
 void algoritmo_id2_mergesort(int *array, int n);
-void algoritmo_id3_heapsort(int *array, int n);
+void algoritmo_id3_radixsort(int *array, int n);
 
 // Troca simples de dois inteiros por referência (utilizada pelos algoritmos)
 static void swap_int(int *a, int *b) {
@@ -83,99 +83,93 @@ void algoritmo_id1_quicksort(int *array, int n) {
     if (n > 1) quicksort_impl(array, 0, n - 1);
 }
 
-// Mergesort iterativo (bottom-up):
-// - Usa buffer temporário 'tmp' de mesmo tamanho que o array
-// - width indica o tamanho dos blocos a serem mesclados (1, 2, 4, 8, ...)
-// - Estável e O(n log n)
-// - Robusto para n muito grande (usa size_t e evita overflow de width)
-void algoritmo_id2_mergesort(int *array, int n) {
+// Substitui o algoritmo 2 por Counting Sort (estável, O(n + K) em tempo)
+// - Funciona para inteiros com possíveis valores negativos (deslocamento por min).
+void algoritmo_id2_countingsort(int *array, int n) {
+    if (n <= 1) return;
+
+    int minv = array[0], maxv = array[0];
+    for (int i = 1; i < n; ++i) {
+        if (array[i] < minv) minv = array[i];
+        if (array[i] > maxv) maxv = array[i];
+    }
+
+    long long range_ll = (long long)maxv - (long long)minv + 1LL;
+
+    size_t K = (size_t)range_ll;
+    size_t *count = (size_t *)calloc(K, sizeof(size_t));
+
+    // Conta frequências
+    for (int i = 0; i < n; ++i) {
+        size_t idx = (size_t)((long long)array[i] - (long long)minv);
+        ++count[idx];
+    }
+
+    // Prefixo exclusivo -> posições de escrita
+    size_t sum = 0;
+    for (size_t k = 0; k < K; ++k) {
+        size_t c = count[k];
+        count[k] = sum;
+        sum += c;
+    }
+
+    int *tmp = (int *)malloc((size_t)n * sizeof(int));
+
+    // Distribui estavelmente
+    for (int i = 0; i < n; ++i) {
+        size_t idx = (size_t)((long long)array[i] - (long long)minv);
+        tmp[count[idx]++] = array[i];
+    }
+
+    memcpy(array, tmp, (size_t)n * sizeof(int));
+    free(tmp);
+    free(count);
+}
+
+// Substitui o algoritmo 3 por Radix Sort LSD (base 256) para int assinados
+// - Usa XOR 0x80000000 para ordenar como unsigned e preservar ordem de sinais.
+// - Estável, 4 passes fixos, O(4 * (n + 256)).
+void algoritmo_id3_radixsort(int *array, int n) {
     if (n <= 1) return;
 
     size_t N = (size_t)n;
     int *tmp = (int *)malloc(N * sizeof(int));
-    if (!tmp) { // fallback em caso de falta de memória
-        algoritmo_id3_heapsort(array, n);
-        return;
-    }
 
-    size_t width = 1;
-    while (width < N) {
-        int any_merged = 0;
-        for (size_t i = 0; i < N; i += (width << 1)) {
-            size_t left = i;
-            size_t mid = i + width;
-            size_t right = i + (width << 1);
-            if (mid > N) mid = N;
-            if (right > N) right = N;
+    size_t count[256];
+    for (int pass = 0; pass < 4; ++pass) {
+        // Zera contadores
+        memset(count, 0, sizeof(count));
 
-            // Se o segundo bloco está vazio ou já está em ordem, pula a mescla
-            if (mid >= right || array[mid - 1] <= array[mid]) {
-                continue;
-            }
-
-            // Mescla os blocos [left, mid) e [mid, right) em tmp
-            size_t p = left, q = mid, k = left;
-            while (p < mid && q < right) {
-                if (array[p] <= array[q]) tmp[k++] = array[p++];
-                else tmp[k++] = array[q++];
-            }
-            while (p < mid) tmp[k++] = array[p++];   // copia resto da esquerda
-            while (q < right) tmp[k++] = array[q++]; // copia resto da direita
-
-            // Copia de volta para o array original
-            memcpy(&array[left], &tmp[left], (right - left) * sizeof(int));
-            any_merged = 1;
+        // Conta por byte do valor "biased"
+        for (size_t i = 0; i < N; ++i) {
+            uint32_t u = ((uint32_t)array[i]) ^ 0x80000000u;
+            uint32_t b = (u >> (pass * 8)) & 0xFFu;
+            ++count[b];
         }
-        if (!any_merged) break;           // early-out se nenhuma mescla ocorreu neste passo
-        if (width > (N >> 1)) break;      // evita overflow de width <<= 1
-        width <<= 1;
+
+        // Prefixo exclusivo
+        size_t sum = 0;
+        for (int b = 0; b < 256; ++b) {
+            size_t c = count[b];
+            count[b] = sum;
+            sum += c;
+        }
+
+        // Distribui estavelmente para tmp
+        for (size_t i = 0; i < N; ++i) {
+            uint32_t u = ((uint32_t)array[i]) ^ 0x80000000u;
+            uint32_t b = (u >> (pass * 8)) & 0xFFu;
+            tmp[count[b]++] = array[i];
+        }
+
+        // Troca buffers para o próximo passe
+        int *swap = array;
+        array = tmp;
+        tmp = swap;
     }
+
+    // 4 passes (par) -> resultado final está de volta no buffer original
     free(tmp);
-}
-
-// Restaura a propriedade de heap máximo a partir do índice i em um heap de tamanho n
-static void sift_down(int *a, int n, int i) {
-    int v = a[i];
-    int half = n >> 1; // primeiros 'half' índices são nós internos
-    while (i < half) {
-        int l = (i << 1) + 1;
-        int r = l + 1;
-        // escolhe o maior filho
-        int j = (r < n && a[r] > a[l]) ? r : l;
-        if (a[j] <= v) break; // posição correta encontrada
-        a[i] = a[j];
-        i = j;
-    }
-    a[i] = v;
-}
-
-// Variante de sift-down que insere um valor 'v' começando na raiz (i)
-// em um heap de tamanho n, evitando o swap no laço principal do sort.
-static void sift_down_with_val(int *a, int n, int i, int v) {
-    int half = n >> 1;
-    while (i < half) {
-        int l = (i << 1) + 1;
-        int r = l + 1;
-        int j = (r < n && a[r] > a[l]) ? r : l;
-        if (a[j] <= v) break;
-        a[i] = a[j];
-        i = j;
-    }
-    a[i] = v;
-}
-
-// Heapsort in-place e não estável (otimizado: evita swap por extração)
-void algoritmo_id3_heapsort(int *array, int n) {
-    if (n <= 1) return;
-    // Construção do heap em O(n)
-    for (int i = (n >> 1) - 1; i >= 0; --i) sift_down(array, n, i);
-    // Sort: extrai máximo movendo o "buraco" e inserindo o último elemento
-    for (int end = n - 1; end > 0; --end) {
-        int max = array[0];
-        int v = array[end];
-        sift_down_with_val(array, end, 0, v);
-        array[end] = max;
-    }
 }
 
 int main() {
@@ -227,12 +221,15 @@ int main() {
         case 1:
             algoritmo_id1_quicksort(sequencia, n);
             break;
+
         case 2:
-            algoritmo_id2_mergesort(sequencia, n);
+            algoritmo_id2_countingsort(sequencia, n);
             break;
+
         case 3:
-            algoritmo_id3_heapsort(sequencia, n);
+            algoritmo_id3_radixsort(sequencia, n);
             break;
+
         default:
             printf("Algoritmo com ID %d nao implementado.\n", id_algoritmo);
             break;
