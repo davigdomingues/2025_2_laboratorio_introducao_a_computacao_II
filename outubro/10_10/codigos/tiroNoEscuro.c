@@ -105,7 +105,7 @@ static void quicksort_impl(int *a, int lo, int hi) {
     // - Particionamento de Hoare (menos swaps em media)
     // - Recursao sempre na menor metade (eliminacao de recursao de cauda), limitando profundidade para O(log n)
     while (lo < hi) {
-        if (hi - lo + 1 <= 16) { // cutoff para pequenos subarrays (valor empírico)
+        if (hi - lo + 1 <= 16) { // cutoff para pequenos subarrays (valor empirico)
             insertion_sort(a, lo, hi);
             break;
         }
@@ -262,7 +262,7 @@ void algoritmo_id2_mergesort(int *array, int n) {
 // Restaura a propriedade de heap maximo a partir do indice i em um heap de tamanho n
 static void sift_down(int *a, int n, int i) {
     // "Sift-down" classico de heap maximo. Usa um cache do valor (v) para reduzir swaps.
-    int v = a[i], half = n >> 1; // primeiros 'half' índices são nós internos
+    int v = a[i], half = n >> 1; // primeiros 'half' índices sao nos internos
 
     while (i < half) {
         int l = (i << 1) + 1, r = l + 1;
