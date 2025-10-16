@@ -262,7 +262,7 @@ void algoritmo_id2_mergesort(int *array, int n) {
 // Restaura a propriedade de heap maximo a partir do indice i em um heap de tamanho n
 static void sift_down(int *a, int n, int i) {
     // "Sift-down" classico de heap maximo. Usa um cache do valor (v) para reduzir swaps.
-    int v = a[i], half = n >> 1; // primeiros 'half' índices sao nos internos
+    int v = a[i], half = n >> 1; // primeiros 'half' indices sao nos internos
 
     while (i < half) {
         int l = (i << 1) + 1, r = l + 1;
