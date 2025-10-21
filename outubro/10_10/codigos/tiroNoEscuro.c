@@ -258,8 +258,8 @@ static void heap_sort_range(int *a, int lo, int hi) {
     }
 }
 
-// Introsort (quicksort + heapsort + insertion sort), excelente desempenho prático e limite O(n log n)
-// Usa particionamento de Hoare já existente; fallback para heapsort quando estourar profundidade
+// Introsort (quicksort + heapsort + insertion sort), excelente desempenho pratico e limite O(n log n)
+// Usa particionamento de Hoare ja existente; fallback para heapsort quando estourar profundidade
 static void introsort_impl(int *a, int lo, int hi, int depth_limit) {
     while (lo < hi) {
         int len = hi - lo + 1;
