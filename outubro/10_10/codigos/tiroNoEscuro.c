@@ -195,7 +195,7 @@ void algoritmo_id2_radixsort(int *array, int n) {
     radix_msd_afs(array, 0, n, 24);
 }
 
-// log2 inteiro de n (n > 0); usado para profundidade máxima do quicksort
+// log2 inteiro de n (n > 0); usado para profundidade maxima do quicksort
 static int ilog2(int n) {
     int lg = 0;
     while (n > 1) { n >>= 1; ++lg; }
