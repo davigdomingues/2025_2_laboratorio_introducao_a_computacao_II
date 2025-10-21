@@ -7,34 +7,29 @@
 /*
     Programa geral de ordenacao:
     - Gera uma sequencia (sorted/reverse/random) de inteiros 1..n
-    - Ordena com um entre tres algoritmos (Quicksort/Mergesort/Heapsort)
-    - Emite um hash CRC32 do conteudo final como verificacao rapida de corretude
+    - Ordena com um algoritmo (Quicksort/Radix sort/Counting sort)
+    - Emite um CRC32 do conteudo final para verificacao rapida
 
-    Observacoes de desempenho:
-    - Quicksort (Hoare + mediana de tres + cutoff para insertion sort) costuma ser o mais rapido em media
-      O(n log n) tipico, O(n^2) no pior caso (mitigado pela escolha do pivo).
-    - Mergesort (bottom-up iterativo, com runs pequenas pre-ordenadas por insertion sort)
-      O(n log n) no pior/medio/melhor, estavel; usa buffer auxiliar e alterna ponteiros (ping-pong).
-    - Heapsort (com construcao Floyd e cutoff para insertion na cauda pequena)
-      O(n log n) no pior/medio/melhor; in-place, nao estavel.
+    Notas de desempenho:
+    - Quicksort: Hoare + mediana de tres + cutoff p/ insertion. O(n log n) medio; O(n^2) pior (mitigado pelo pivo).
+    - Radix sort (MSD, American flag): base 256, in-place, nao estavel. O(w*n), w = bytes.
+    - Counting sort: O(n + k). Eficiente em intervalo compacto; fallback p/ quicksort se k grande.
 */
 
 void algoritmo_id1_quicksort(int *array, int n);
-void algoritmo_id2_mergesort(int *array, int n);
-void algoritmo_id3_heapsort(int *array, int n);
+void algoritmo_id2_radixsort(int *array, int n);
+void algoritmo_id3_introsort(int *array, int n);
 
-// Troca simples de dois inteiros por referencia
+// Troca dois inteiros por referencia
 static void swap_int(int *a, int *b) {
-    int t = *a; 
-    *a = *b; 
+    int t = *a;
+    *a = *b;
     *b = t;
 }
 
-// Insertion Sort in-place em [lo, hi]
-// Bom desempenho para subarranjos pequenos (usado como cutoff no Quicksort)
+// Insertion sort in-place em [lo, hi]; bom para subarranjos pequenos (cutoff)
 static void insertion_sort(int *a, int lo, int hi) {
-    // Complexidade O(m^2) no pior caso (m = hi - lo + 1); porem muito eficiente para subarranjos pequenos.
-    // Util como "cutoff" para reduzir overhead de recursao/merges em algoritmos hibridos.
+    // O(m^2) no pior caso (m = hi - lo + 1)
     for (int i = lo + 1; i <= hi; ++i) {
         int key = a[i], j = i - 1;
         
@@ -49,8 +44,7 @@ static void insertion_sort(int *a, int lo, int hi) {
     }
 }
 
-// Escolha de pivo por mediana de tres: a[lo], a[mid], a[hi]
-// Reduz a chance de piores casos em entradas quase ordenadas
+// Mediana de tres: escolhe pivo entre a[lo], a[mid], a[hi] e move para a[lo]
 static int median_of_three(int *a, int lo, int hi) {
     // Seleciona a mediana entre a[lo], a[mid], a[hi] e a move para a[lo] como pivo.
     // Ajuda a evitar piores casos em entradas ja (quase) ordenadas.
@@ -125,217 +119,184 @@ static void quicksort_impl(int *a, int lo, int hi) {
     }
 }
 
-// Interface do algoritmo Quicksort
+// Interface do Quicksort
 void algoritmo_id1_quicksort(int *array, int n) {
     // Guarda de sanidade: nada a ordenar para n <= 1
     if (n > 1) 
         quicksort_impl(array, 0, n - 1);
 }
 
-// Helpers para detectar ordenacao e reverter rapidamente casos degenerados
-static int is_sorted_asc(const int *a, int n) {
-    // Checagem linear O(n) usada como fast-path para evitar trabalho desnecessario
-    for (int i = 1; i < n; ++i) {
-        if (a[i - 1] > a[i]) {
-            return 0;
+// Mapeia int assinado para unsigned (flip do bit de sinal) e extrai byte em 'shift'
+static unsigned byte_of(int v, int shift) {
+    // Mapeia a ordenacao de int assinados para unsigned via flip do bit de sinal
+    uint32_t u = ((uint32_t)v) ^ 0x80000000u;
+    return (unsigned)((u >> shift) & 0xFFu);
+}
+
+static void radix_msd_afs(int *a, int lo, int hi, int shift) { // [lo, hi)
+    const int THRESH = 32;
+    int len = hi - lo;
+
+    if (len <= 1 || shift < 0) 
+        return;
+
+    if (len <= THRESH) { 
+        insertion_sort(a, lo, hi - 1); 
+        return; 
+    }
+
+    int count[256] = {0}, start[256], nextp[256];
+
+    // Contagem por bucket
+    for (int i = lo; i < hi; ++i)
+        ++count[byte_of(a[i], shift)];
+
+    // Prefixos (posicoes de inicio)
+    int sum = lo;
+
+    for (int b = 0; b < 256; ++b) {
+        start[b] = sum;
+        nextp[b] = sum;
+        sum += count[b];
+    }
+
+    // Permutacao in-place (cycle leader)
+    for (int b = 0; b < 256; ++b) {
+        int i = start[b], end = start[b] + count[b];
+
+        while (i < end) {
+            unsigned db = byte_of(a[i], shift);
+            if ((int)db == b)
+                ++i;
+            
+            else {
+                int dest = nextp[db]++;
+                swap_int(&a[i], &a[dest]);
+            }
         }
     }
 
-    return 1;
-}
+    // Recursao por bucket no proximo byte
+    if (shift > 0) {
+        for (int b = 0; b < 256; ++b) {
+            int s = start[b], c = count[b];
 
-static int is_sorted_desc(const int *a, int n) {
-    // Varredura linear O(n) para detectar ordem estritamente decrescente
-    for (int i = 1; i < n; ++i) {
-        if (a[i - 1] < a[i]) 
-            return 0;
+            if (c > 1)
+                radix_msd_afs(a, s, s + c, shift - 8);
+        }
     }
-     
-    return 1;
 }
 
-static void reverse_array(int *a, int n) {
-    // Inverte in-place em O(n) quando detectado array decrescente
-    for (int i = 0, j = n - 1; i < j; ++i, --j) 
-        swap_int(&a[i], &a[j]);
-}
-
-// Mergesort iterativo (bottom-up) hibridizado com insertion sort para runs pequenas
-// - Pre-ordena runs de tamanho RUN com insertion sort
-// - Faz merge em "ping-pong" entre array e tmp, copiando ao final so se necessario
-void algoritmo_id2_mergesort(int *array, int n) {
-    // Versao iterativa (bottom-up) com runs pequenas otimizadas via insertion sort (melhora localidade e cache).
+// Radix sort MSD in-place (American flag sort, base 256)
+void algoritmo_id2_radixsort(int *array, int n) {
     if (n <= 1) 
         return;
 
-    // Fast-paths: ja ordenado crescente ou totalmente decrescente
-    if (is_sorted_asc(array, n)) 
-        return;
-
-    if (is_sorted_desc(array, n)) { 
-        reverse_array(array, n); 
-        return; 
-    }
-
-    size_t N = (size_t)n;
-
-    // Pre-ordena runs pequenas com insertion sort
-    const size_t RUN = 32; // tamanho de run escolhido empiricamente; ajustavel conforme arquitetura e dados
-
-    for (size_t i = 0; i < N; i += RUN) {
-        size_t lo = i;
-        size_t hi = (i + RUN - 1 < N) ? (i + RUN - 1) : (N - 1);
-        insertion_sort(array, (int)lo, (int)hi);
-    }
-
-    // Se ja coube tudo em uma run, ja esta ordenado
-    if (N <= RUN) return;
-
-    int *tmp = (int *)malloc(N * sizeof(int));
-
-    int *src = array, *dst = tmp;
-    size_t width = RUN;
-    while (width < N) {
-        // Pre-checagem: se todas as fronteiras de runs ja estao em ordem, termina
-        // Evita passes de merge desnecessarios quando quase tudo ja esta mesclado
-        int already_sorted = 1;
-
-        for (size_t i = 0; i + width < N; i += (width << 1)) {
-            size_t mid = i + width;
-            if (src[mid - 1] > src[mid]) { already_sorted = 0; break; }
-        }
-
-        if (already_sorted) break;
-
-        int any_merged = 0;
-        for (size_t i = 0; i < N; i += (width << 1)) {
-            size_t left = i, mid = i + width, right = i + (width << 1);
-            if (mid > N)
-                mid = N;
-
-            if (right > N) 
-                right = N;
-
-            // Se bloco direito vazio ou ja em ordem, so copia
-            if (mid >= right || src[mid - 1] <= src[mid]) {
-                memcpy(&dst[left], &src[left], (right - left) * sizeof(int));
-                continue;
-            }
-
-            // Merge estavel src -> dst
-            // Invariante: [left..mid) e [mid..right) estao ordenados em src
-            size_t p = left, q = mid, k = left;
-            while (p < mid && q < right) {
-                if (src[p] <= src[q]) 
-                    dst[k++] = src[p++];
-
-                else 
-                dst[k++] = src[q++];
-            }
-
-            // Copia o restante (um dos lados sempre esgota primeiro)
-            while (p < mid) 
-                dst[k++] = src[p++];
-
-            while (q < right) 
-                dst[k++] = src[q++];
-
-            any_merged = 1;
-        }
-
-        if (!any_merged) break; // nada a mesclar neste passe
-
-        // Proximo passe: troca src/dst (ping-pong). Evita copias desnecessarias a cada nivel.
-        int *swap = src; src = dst; dst = swap;
-
-        if (width > (N >> 1)) break;     // evita overflow ao dobrar
-        width <<= 1;
-    }
-
-    // Se o resultado final ficou em tmp (src != array), copia de volta uma vez
-    if (src != array)
-        memcpy(array, src, N * sizeof(int));
-
-    free(tmp);
+    radix_msd_afs(array, 0, n, 24);
 }
 
-// Restaura a propriedade de heap maximo a partir do indice i em um heap de tamanho n
-static void sift_down(int *a, int n, int i) {
-    // "Sift-down" classico de heap maximo. Usa um cache do valor (v) para reduzir swaps.
-    int v = a[i], half = n >> 1; // primeiros 'half' indices sao nos internos
-
-    while (i < half) {
-        int l = (i << 1) + 1, r = l + 1;
-
-        // escolhe o maior filho
-        int j = (r < n && a[r] > a[l]) ? r : l;
-
-        if (a[j] <= v) 
-            break; // posicao correta encontrada
-
-        a[i] = a[j];
-        i = j;
-    }
-
-    a[i] = v;
+// log2 inteiro de n (n > 0); usado para profundidade máxima do quicksort
+static int ilog2(int n) {
+    int lg = 0;
+    while (n > 1) { n >>= 1; ++lg; }
+    return lg;
 }
 
-// Variante de sift-down que insere um valor 'v' comecando na raiz (i)
-// em um heap de tamanho n, evitando o swap no laco principal do sort.
-static void sift_down_with_val(int *a, int n, int i, int v) {
-    // Variante que evita a troca inicial entre raiz e ultimo elemento.
-    // 'v' e o valor que sera afundado a partir da posicao 'i'.
-    int half = n >> 1;
+// Heapsort em subarray [lo..hi], indices inclusivos
+static void heap_sift_down(int *a, int lo, int hi, int i0) {
+    int n = hi - lo + 1, i = i0;
 
-    while (i < half) {
-        int l = (i << 1) + 1, r = l + 1, j = (r < n && a[r] > a[l]) ? r : l;
+    for (;;) {
+        int l = 2 * i + 1, r = l + 1, m = i;
 
-        if (a[j] <= v) 
+        if (l < n && a[lo + l] > a[lo + m]) 
+            m = l;
+
+        if (r < n && a[lo + r] > a[lo + m]) 
+            m = r;
+
+        if (m == i) 
             break;
-            
-        a[i] = a[j];
-        i = j;
-    }
 
-    a[i] = v;
+        swap_int(&a[lo + i], &a[lo + m]);
+        i = m;
+    }
 }
 
-// Heapsort hibridizado com insertion sort para tamanhos pequenos e cauda pequena
-void algoritmo_id3_heapsort(int *array, int n) {
-    if (n <= 1) return;
-    
-    // Fast-paths: ja ordenado crescente ou totalmente decrescente
-    if (is_sorted_asc(array, n))
+static void heap_heapify(int *a, int lo, int hi) {
+    int n = hi - lo + 1;
+
+    for (int i = (n >> 1) - 1; i >= 0; --i)
+        heap_sift_down(a, lo, hi, i);
+}
+
+static void heap_sort_range(int *a, int lo, int hi) {
+    if (hi - lo + 1 <= 1) 
         return;
 
-    if (is_sorted_desc(array, n)) { 
-        reverse_array(array, n); 
-        return; 
+    heap_heapify(a, lo, hi);
+
+    for (int end = hi; end > lo; --end) {
+        swap_int(&a[lo], &a[end]);        // move maior para o fim
+        // reduzir heap para [lo..end-1]; sift_down a partir da raiz (0)
+        int n = end - lo, i = 0;
+        for (;;) {
+            int l = 2 * i + 1, r = l + 1, m = i;
+
+            if (l < n && a[lo + l] > a[lo + m]) 
+                m = l;
+
+            if (r < n && a[lo + r] > a[lo + m]) 
+                m = r;
+
+            if (m == i) 
+                break;
+
+            swap_int(&a[lo + i], &a[lo + m]);
+            i = m;
+        }
     }
+}
 
-    // Cutoff para tamanhos pequenos: insertion sort e tipicamente melhor em cache
-    if (n <= 32) {
-        insertion_sort(array, 0, n - 1);
-        return;
-    }
+// Introsort (quicksort + heapsort + insertion sort), excelente desempenho prático e limite O(n log n)
+// Usa particionamento de Hoare já existente; fallback para heapsort quando estourar profundidade
+static void introsort_impl(int *a, int lo, int hi, int depth_limit) {
+    while (lo < hi) {
+        int len = hi - lo + 1;
 
-    // Construcao do heap (Floyd): O(n)
-    for (int i = (n >> 1) - 1; i >= 0; --i) 
-        sift_down(array, n, i);
-
-    // Extracao do maximo + restauracao do heap: O(n log n)
-    // Cutoff: termina com insertion sort quando a cauda for pequena
-    for (int end = n - 1; end > 0; --end) {
-        if (end < 32) { // ordena o prefixo restante de forma eficiente
-            insertion_sort(array, 0, end);
-            break;
+        if (len <= 16) { // cutoff para insertion sort
+            insertion_sort(a, lo, hi);
+            return;
         }
 
-        int max = array[0], v = array[end];
+        if (depth_limit == 0) {
+            heap_sort_range(a, lo, hi);
+            return;
+        }
 
-        sift_down_with_val(array, end, 0, v);
-        array[end] = max;
+        --depth_limit;
+        int p = partition_hoare(a, lo, hi);
+
+        // recursiona na menor metade para limitar profundidade
+        if (p - lo < hi - (p + 1)) {
+            introsort_impl(a, lo, p, depth_limit);
+            lo = p + 1;
+        } 
+        
+        else {
+            introsort_impl(a, p + 1, hi, depth_limit);
+            hi = p;
+        }
     }
+}
+
+// Interface do Introsort (algoritmo 3)
+void algoritmo_id3_introsort(int *array, int n) {
+    if (n <= 1) 
+        return;
+
+    int depth = (ilog2(n) << 1); // 2 * floor(log2(n))
+    introsort_impl(array, 0, n - 1, depth);
 }
 
 int main() {
@@ -359,19 +320,21 @@ int main() {
         return 1;
     }
 
-    // Geracao da sequencia conforme requisitado
+    // Geracao da sequencia
     if (strcmp(tipo_sequencia, "sorted") == 0) {
         // Gera sequencia ja ordenada
         for (int i = 0; i < n; i++)
             sequencia[i] = i + 1;
 
     }
+
     else if (strcmp(tipo_sequencia, "reverse") == 0) {
         // Gera sequencia em ordem inversa
         for (int i = 0; i < n; i++)
             sequencia[i] = n - i;
 
     }
+
     else if (strcmp(tipo_sequencia, "random") == 0) {
         // Gera sequencia aleatoria usando a semente especificada
         // get_random(state, max) devolve valores em [1..max]
@@ -380,6 +343,7 @@ int main() {
         for (int i = 0; i < n; i++)
             sequencia[i] = get_random(&seed, n);
     }
+
     else {
         // Default seguro: random
         int seed = 12345;
@@ -395,11 +359,11 @@ int main() {
             break;
 
         case 2:
-            algoritmo_id2_mergesort(sequencia, n);
+            algoritmo_id2_radixsort(sequencia, n);
             break;
 
         case 3:
-            algoritmo_id3_heapsort(sequencia, n);
+            algoritmo_id3_introsort(sequencia, n);
             break;
 
         default:
