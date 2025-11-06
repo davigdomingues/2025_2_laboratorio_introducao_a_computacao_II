@@ -109,6 +109,20 @@ int compare_longs(const void *a, const void *b) {
     return 0;
 }
 
+// Auxiliares para o processamento offline do algoritmo 3
+typedef struct {
+    long key;
+    int idx;
+} QueryPair;
+
+static int compare_query_pair(const void *a, const void *b) {
+    const QueryPair *qa = (const QueryPair *)a;
+    const QueryPair *qb = (const QueryPair *)b;
+    if (qa->key < qb->key) return -1;
+    if (qa->key > qb->key) return 1;
+    return 0;
+}
+
 // Converte data "dd-mm-yyyy" para formato long "yyyymmdd"
 long convert_date_to_long(char *date_str) {
     int d, m, y;
@@ -131,6 +145,43 @@ static int next_prime(int x) {
     if (x % 2 == 0) x++;
     while (!is_prime(x)) x += 2;
     return x;
+}
+
+// Função que implementa o algoritmo 3 otimizado (offline: sort + merge)
+static void search_offline_sequential(long *date_vector, int N, long *search_vector, int Q) {
+    qsort(date_vector, N, sizeof(long), compare_longs);
+
+    QueryPair *qs = (QueryPair *)malloc(sizeof(QueryPair) * (Q > 0 ? Q : 1));
+    for (int i = 0; i < Q; i++) {
+        qs[i].key = search_vector[i];
+        qs[i].idx = i;
+    }
+    qsort(qs, Q, sizeof(QueryPair), compare_query_pair);
+
+    int *ans = (int *)calloc(Q > 0 ? Q : 1, sizeof(int));
+
+    int i = 0, j = 0;
+    while (i < N && j < Q) {
+        if (date_vector[i] < qs[j].key) {
+            i++;
+        } else if (date_vector[i] > qs[j].key) {
+            j++;
+        } else {
+            long val = qs[j].key;
+            while (j < Q && qs[j].key == val) {
+                ans[qs[j].idx] = 1;
+                j++;
+            }
+            while (i < N && date_vector[i] == val) i++;
+        }
+    }
+
+    for (int k = 0; k < Q; k++) {
+        puts(ans[k] ? "ENCONTRADA" : "NAO_ENCONTRADA");
+    }
+
+    free(ans);
+    free(qs);
 }
 
 int main() {
@@ -193,12 +244,10 @@ int main() {
             break;
         }
 
-        case 3: // Busca sequencial
-            for (int i = 0; i < Q; i++) {
-                found = sequential_search(date_vector, N, search_vector[i]);
-                puts(found ? "ENCONTRADA" : "NAO_ENCONTRADA");
-            }
+        case 3: { // Busca sequencial otimizada (offline: sort + merge)
+            search_offline_sequential(date_vector, N, search_vector, Q);
             break;
+        }
 
         default:
             fprintf(stderr, "Erro: Algoritmo de busca desconhecido.\n");
