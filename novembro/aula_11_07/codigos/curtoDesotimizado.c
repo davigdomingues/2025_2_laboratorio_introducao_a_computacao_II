@@ -1,8 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-
-// Estruturas e funcoes para implementacao de tabela hash
 
 // No da lista encadeada para tratamento de colisoes
 typedef struct Node {
@@ -14,90 +11,72 @@ typedef struct Node {
 typedef struct HashTable {
     int size;
     Node **table;
-    // pool para evitar malloc por insercao
-    Node *pool;
-    int pool_index;
-    int pool_capacity;
+    Node *pool;        // pool pre-alocado para evitar malloc por insercao
+    int pool_index;    // proximo indice livre no pool
 } HashTable;
 
-// Funcao hash usando metodo da divisao
+// Funcao hash: dados sao positivos (yyyymmdd); mod direto suficiente
 int hash_function(long key, int size) {
-    // Garante resultado positivo
-    return (int)(key % size + size) % size;
+    return (int)(key % size);
 }
 
-// Cria e inicializa a tabela hash (com pool para N elementos)
+// Cria tabela hash com pool
 HashTable *hash_create(int size, int capacity) {
-    HashTable *ht = (HashTable *)malloc(sizeof(HashTable));
+    HashTable *ht = malloc(sizeof(HashTable));
     ht->size = size;
-    ht->table = (Node **)calloc(size, sizeof(Node *));
-    ht->pool_capacity = capacity > 0 ? capacity : 1;
-    ht->pool = (Node *)malloc(sizeof(Node) * ht->pool_capacity);
+    ht->table = calloc(size, sizeof(Node *));
+    ht->pool = malloc(sizeof(Node) * (capacity > 0 ? capacity : 1));
     ht->pool_index = 0;
     return ht;
 }
 
-// Insere uma chave na tabela hash (usa pool ao inves de malloc por no)
+// Insere chave na tabela; evita operacao inline complexa
 void hash_insert(HashTable *ht, long key) {
     int index = hash_function(key, ht->size);
-    Node *newNode = &ht->pool[ht->pool_index++]; // assume capacidade suficiente
-    newNode->date_key = key;
-    newNode->next = ht->table[index];
-    ht->table[index] = newNode;
+    int idx_pool = ht->pool_index;
+    Node *new_node = &ht->pool[idx_pool];
+    ht->pool_index++;
+    new_node->date_key = key;
+    new_node->next = ht->table[index];
+    ht->table[index] = new_node;
 }
 
-// Busca uma chave na tabela hash
+// Busca na hash (caminha lista da posicao)
 int hash_search(HashTable *ht, long key) {
     int index = hash_function(key, ht->size);
-    
     Node *current = ht->table[index];
     while (current != NULL) {
         if (current->date_key == key) {
-            return 1; // encontrada
+            return 1;
         }
         current = current->next;
     }
-    return 0; // nao encontrada
+    return 0;
 }
 
-// Libera toda a memoria da tabela hash
 void hash_free(HashTable *ht) {
     if (ht == NULL) return;
-    // nos pertencem ao pool; nao liberar individualmente
     free(ht->table);
     free(ht->pool);
     free(ht);
-}
-
-// Busca sequencial no vetor
-int sequential_search(long *date_vector, int N, long key) {
-    for (int i = 0; i < N; i++) {
-        if (date_vector[i] == key) {
-            return 1; // encontrada
-        }
-    }
-    return 0; // nao encontrada
 }
 
 // Busca binaria (requer vetor ordenado)
 int binary_search(long *date_vector, int N, long key) {
     int left = 0;
     int right = N - 1;
-    
     while (left <= right) {
         int mid = left + (right - left) / 2;
-        
         if (date_vector[mid] == key) {
-            return 1; // encontrada
+            return 1;
         }
-        
         if (date_vector[mid] < key) {
             left = mid + 1;
         } else {
             right = mid - 1;
         }
     }
-    return 0; // nao encontrada
+    return 0;
 }
 
 // Funcao de comparacao para qsort
@@ -106,20 +85,6 @@ int compare_longs(const void *a, const void *b) {
     long val2 = *(const long *)b;
     if (val1 < val2) return -1;
     if (val1 > val2) return 1;
-    return 0;
-}
-
-// Auxiliares para o processamento offline do algoritmo 3
-typedef struct {
-    long key;
-    int idx;
-} QueryPair;
-
-static int compare_query_pair(const void *a, const void *b) {
-    const QueryPair *qa = (const QueryPair *)a;
-    const QueryPair *qb = (const QueryPair *)b;
-    if (qa->key < qb->key) return -1;
-    if (qa->key > qb->key) return 1;
     return 0;
 }
 
@@ -148,50 +113,12 @@ static int next_prime(int x) {
     return x;
 }
 
-// Funcao que implementa o algoritmo 3 otimizado (offline: sort + merge)
-static void search_offline_sequential(long *date_vector, int N, long *search_vector, int Q) {
-    qsort(date_vector, N, sizeof(long), compare_longs);
-
-    QueryPair *qs = (QueryPair *)malloc(sizeof(QueryPair) * (Q > 0 ? Q : 1));
-    for (int i = 0; i < Q; i++) {
-        qs[i].key = search_vector[i];
-        qs[i].idx = i;
-    }
-    
-    qsort(qs, Q, sizeof(QueryPair), compare_query_pair);
-
-    int *ans = (int *)calloc(Q > 0 ? Q : 1, sizeof(int));
-
-    int i = 0, j = 0;
-    while (i < N && j < Q) {
-        if (date_vector[i] < qs[j].key) {
-            i++;
-        } else if (date_vector[i] > qs[j].key) {
-            j++;
-        } else {
-            long val = qs[j].key;
-            while (j < Q && qs[j].key == val) {
-                ans[qs[j].idx] = 1;
-                j++;
-            }
-            while (i < N && date_vector[i] == val) i++;
-        }
-    }
-
-    for (int k = 0; k < Q; k++) {
-        puts(ans[k] ? "ENCONTRADA" : "NAO_ENCONTRADA");
-    }
-
-    free(ans);
-    free(qs);
-}
-
 int main() {
     int N;
     scanf("%d", &N);
-    
+
     // Aloca vetor para as datas
-    long *date_vector = (long *)malloc(N * sizeof(long));
+    long *date_vector = malloc(N * sizeof(long));
     char date_buffer[12];
 
     // Le as N datas
@@ -199,26 +126,25 @@ int main() {
         scanf("%s", date_buffer);
         date_vector[i] = convert_date_to_long(date_buffer);
     }
-    
+
     int Q;
     scanf("%d", &Q);
-    
+
     // Aloca vetor para as consultas
-    long *search_vector = (long *)malloc(Q * sizeof(long));
-    
+    long *search_vector = malloc(Q * sizeof(long));
     // Le as datas de busca
     for (int i = 0; i < Q; i++) {
         scanf("%s", date_buffer);
         search_vector[i] = convert_date_to_long(date_buffer);
     }
-    
+
     int algorithm_choice;
     scanf("%d", &algorithm_choice);
 
     int found;
 
     switch (algorithm_choice) {
-        case 1: // Busca binaria
+        case 1: // Busca binaria: O(N log N) preprocess + O(log N) por consulta
             qsort(date_vector, N, sizeof(long), compare_longs);
             for (int i = 0; i < Q; i++) {
                 found = binary_search(date_vector, N, search_vector[i]);
@@ -226,30 +152,35 @@ int main() {
             }
             break;
 
-        case 2: { // Busca com hash
+        case 2: { // Hash: O(N) construcao + O(1) medio por consulta
             int base = (N > 0) ? (2 * N) : 1;
             int table_size = next_prime(base);
             HashTable *ht = hash_create(table_size, N > 0 ? N : 1);
-
             // Insere todas as datas na tabela hash
             for (int i = 0; i < N; i++) {
                 hash_insert(ht, date_vector[i]);
             }
-
             // Realiza as buscas
             for (int i = 0; i < Q; i++) {
                 found = hash_search(ht, search_vector[i]);
                 puts(found ? "ENCONTRADA" : "NAO_ENCONTRADA");
             }
-
             hash_free(ht);
             break;
         }
 
-        case 3: { // Busca sequencial otimizada (offline: sort + merge)
-            search_offline_sequential(date_vector, N, search_vector, Q);
+        case 3: // Busca linear pura: O(N * Q)
+            for (int i = 0; i < Q; i++) {
+                int found_cur = 0;
+                for (int j = 0; j < N; j++) {
+                    if (date_vector[j] == search_vector[i]) {
+                        found_cur = 1;
+                        break; // encontrado para esta consulta
+                    }
+                }
+                puts(found_cur ? "ENCONTRADA" : "NAO_ENCONTRADA");
+            }
             break;
-        }
 
         default:
             fprintf(stderr, "Erro: Algoritmo de busca desconhecido.\n");
@@ -258,6 +189,5 @@ int main() {
 
     free(date_vector);
     free(search_vector);
-    
     return 0;
 }
